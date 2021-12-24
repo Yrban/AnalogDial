@@ -1,0 +1,108 @@
+struct DialWithIndicatorView: View {
+    
+    let value: CGFloat
+    let maxValue: CGFloat
+    let markerQty: Int
+    let maxCurvePercent: Double
+    let colors:[Color]
+    init(value:Double, maxValue: Double, numberOfMarkers: Int, maxCurvePercent: Double = 0, gradient: [Color]) {
+        self.value = value
+        self.maxValue = maxValue
+        markerQty = numberOfMarkers
+        self.maxCurvePercent = maxCurvePercent
+        // If there are enough colors, this allows a longer transition in to the gradient.
+        // This is solely for aesthetics.
+        guard gradient.count > 4,
+              let first = gradient.first,
+              let last = gradient.last else {
+                  colors = gradient
+                  return
+              }
+        var correctedGradient: [Color] = [first]
+        correctedGradient.append(contentsOf: gradient)
+        correctedGradient.append(last)
+        colors = correctedGradient
+    }
+    
+    @State private var viewWidth: CGFloat = 0
+    
+    // This value is needed to calibrate the location of the needle
+    var offset: CGFloat {
+        (value / maxValue) * viewWidth
+    }
+    
+    var body: some View {
+        GeometryReader { geometry in
+            ZStack(alignment: .leading) {
+                LinearGradient(gradient: Gradient(colors: colors), startPoint: .leading, endPoint: .trailing)
+                    .mask(DialMarkers(number: markerQty, width: 5, height: geometry.size.height, maxWidth: geometry.size.width, maxCurvePercent: maxCurvePercent))
+                DialNeedle()
+                    .offset(x: offset, y: 0)
+            }
+            .preference(
+                //This sets the preference key value with the width of the background view
+                key: WidthPrefKey.self,
+                value: geometry.size.width)
+        }
+        .onPreferenceChange(WidthPrefKey.self) {
+            viewWidth = max($0,viewWidth)
+        }
+    }
+}
+
+private extension DialWithIndicatorView {
+    struct WidthPrefKey: PreferenceKey {
+        static let defaultValue: CGFloat = 0
+        
+        static func reduce(value: inout CGFloat,
+                           nextValue: () -> CGFloat) {
+            value = max(value, nextValue())
+        }
+    }
+    
+    struct DialNeedle: View {
+        var body: some View {
+            ZStack(alignment: .bottom) {
+                Capsule()
+                    .frame(width: 3)
+                Ellipse()
+                    .strokeBorder(.black, lineWidth: 2)
+                    .frame(width: 16, height: 12)
+                    .offset(x: 0, y: 12)
+            }
+            .offset(x: -8, y: 0)
+        }
+    }
+
+    struct DialMarkers: View {
+        let number: Int
+        let width: CGFloat
+        let height: CGFloat
+        let maxWidth: CGFloat
+        let maxCurvePercent: Double
+        
+        var spacing: CGFloat {
+            ((maxWidth - width) / CGFloat(number - 1)) - width
+        }
+        
+        var body: some View {
+            HStack(spacing: spacing) {
+                ForEach(0..<number) { marker in
+                    Capsule()
+                        .frame(width: width, height: height * computeHeightPercent(marker: marker))
+                }
+            }
+        }
+        
+        func computeHeightPercent(marker: Int) -> CGFloat {
+            let x = Double(marker)
+            let n = Double(number - 1)
+            let half = n / 2
+            let a: Double = maxCurvePercent / ((half * half) - (n * half))
+            // To get the nice parabola effect, we need to use a quadratic equation.
+            let y = 1 - (a * ((x * x) - (n * x)))
+            print("x = \(x): y = \(y)\n")
+            return y
+        }
+    }
+}
