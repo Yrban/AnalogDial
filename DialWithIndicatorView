@@ -6,7 +6,7 @@ struct DialWithIndicatorView: View {
     let maxCurvePercent: Double
     let colors:[Color]
     init(value:Double, maxValue: Double, numberOfMarkers: Int, maxCurvePercent: Double = 0, gradient: [Color]) {
-        self.value = value
+        self.value = min(max(0, value), maxValue)
         self.maxValue = maxValue
         markerQty = numberOfMarkers
         self.maxCurvePercent = maxCurvePercent
@@ -101,7 +101,6 @@ private extension DialWithIndicatorView {
             let a: Double = maxCurvePercent / ((half * half) - (n * half))
             // To get the nice parabola effect, we need to use a quadratic equation.
             let y = 1 - (a * ((x * x) - (n * x)))
-            print("x = \(x): y = \(y)\n")
             return y
         }
     }
